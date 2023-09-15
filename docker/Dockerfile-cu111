@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.1.1-cudnn8-devel-ubuntu18.04
+FROM nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04
 
 ENV PYTHON_VERSION=3.8
 
@@ -32,7 +32,7 @@ RUN apt-get update && apt-get install -y \
       build-essential \
       cmake \
       ffmpeg \
-      g++-4.8 \
+      g++ \
       git \
       curl \
       docker.io \
@@ -105,7 +105,8 @@ RUN pip install \
     tqdm==4.62.2 \
     wandb==0.12.0
 
-RUN pip install numba==0.54.0 Cython==0.29.24 pycocotools==2.0.2 nuscenes-devkit==1.1.7
+RUN pip install numba==0.54.0 Cython==0.29.24 nuscenes-devkit==1.1.7
+RUN pip install "git+https://github.com/open-mmlab/cocoapi.git#subdirectory=pycocotools"
 
 # Install pytorch 1.9+cu111
 RUN pip install torch==1.9.0+cu111 torchvision==0.10.0+cu111 -f https://download.pytorch.org/whl/torch_stable.html
@@ -113,17 +114,41 @@ RUN pip install torch==1.9.0+cu111 torchvision==0.10.0+cu111 -f https://download
 # Install fvcore and detectron2.
 ENV FVCORE_CACHE="/tmp"
 RUN pip install -U 'git+https://github.com/facebookresearch/fvcore'
-RUN python -m pip install detectron2 -f https://dl.fbaipublicfiles.com/detectron2/wheels/cu111/torch1.9/index.html
+# RUN python -m pip install detectron2 -f https://dl.fbaipublicfiles.com/detectron2/wheels/cu111/torch1.9/index.html
+
+# Bug-fixed version of detectron2: PIL.Image doesn't have Image.LINEAR anymore
+RUN python3 -m pip install -U 'git+https://github.com/facebookresearch/detectron2.git@ff53992b1985b63bd3262b5a36167098e3dada02'
+RUN pip3 install protobuf==3.20
 
 # Pre-built pytorch3d
 RUN pip install pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py38_cu111_pyt190/download.html
 
-#-----------------------
-# Copy working directory
-#-----------------------
-ARG WORKSPACE
-COPY . ${WORKSPACE}
-
 ENV PYTHONPATH "${PYTHONPATH}:${WORKSPACE}/tridet/"
 
-WORKDIR ${WORKSPACE}
+#-----------------------
+# Optional settings
+#-----------------------
+
+# Set timezone
+ARG TZ
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -yq tzdata && \
+    ln -fs /usr/share/zoneinfo/$TZ /etc/localtime && \
+    dpkg-reconfigure --frontend noninteractive tzdata
+
+# Add user
+ARG USER_ID
+ARG GROUP_ID
+ARG USER_NAME
+RUN apt-get install -y sudo
+RUN groupadd -r ${USER_NAME} -g ${GROUP_ID} && \
+    useradd -u ${USER_ID} -g ${GROUP_ID} -m -s /bin/bash ${USER_NAME} -p "$(openssl passwd -1 ${USER_NAME})" && \
+    usermod -aG sudo ${USER_NAME}
+
+WORKDIR /home/${USER_NAME}/workspace
+RUN chown -R ${USER_NAME}:${USER_NAME} /home/${USER_NAME}/workspace
+USER ${USER_NAME}
+
+
+# (Optional) Apply custom BASH Prompt to make it different from local prompt
+RUN echo "export PS1='(docker) \[\e[32m\](\D{%T})\[\e[0m\] \[\e[33m\]\u@\h:\w\[\e[0m\]\$ '" >> /home/$USER_NAME/.bashrc
