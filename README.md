@@ -22,10 +22,8 @@ We recommend using docker (see [nvidia-docker2](https://github.com/NVIDIA/nvidia
 ```bash
 git clone https://github.com/TRI-ML/dd3d.git
 cd dd3d
-# If you want to use docker (recommended)
-make docker-build # CUDA 10.2
-# Alternative docker image for cuda 11.1
-# make docker-build DOCKERFILE=Dockerfile-cu111
+# docker image for cuda 11.1
+make docker-build DOCKERFILE=Dockerfile-cu111
 ```
 Please check the version of your nvidia driver and [cuda compatibility](https://docs.nvidia.com/deploy/cuda-compatibility/) to determine which Dockerfile to use.
 
@@ -185,6 +183,34 @@ One can run only evaluation using the pretrained models:
 ./scripts/train.py +experiments=<some-experiment> EVAL_ONLY=True MODEL.CKPT=<path-to-pretrained-model> TEST.IMS_PER_BATCH=4
 ```
 
+### Analysis
+1. Please run below command to launch jupyter notebook
+```bash
+make docker-jupyter DOCKERFILE=Dockerfile-cu111
+```
+
+2. Open the notebook file: `notebooks/'230915 - Visualize supervision and inference.ipynb'`.
+
+3. Then, run cells!
+
+* If your development environment is on a remote server, please use SSH port forwarding (or SSH Tunnelling) to open jupyter notebook on your local web browser, which is running on your server.
+
+When you login to your server to launch jupyter notebook, please use below option (or set ssh config).
+
+```bash
+ssh -L 8889:localhost:8889 ${SERVER_HOSTNAME}
+```
+
+or (Example)
+
+```bash
+Host lambda
+	User ubuntu
+	HostName xxx.xxx.xxx.xxx
+	LocalForward 8889 localhost:8889
+```
+
+
 ### Gradient accumulation
 If you have insufficient GPU memory for any experiment, you can use [gradient accumulation](https://towardsdatascience.com/what-is-gradient-accumulation-in-deep-learning-ec034122cfa) by configuring [`ACCUMULATE_GRAD_BATCHES`](https://github.com/TRI-ML/dd3d/blob/main/configs/common/optimizer.yaml#L63), at the cost of longer training time. For instance, if the experiment requires at least 400 of GPU memory (e.g. [V2-99, KITTI](./configs/experiments/dd3d_kitti_v99.yaml)) and you have only 128 (e.g., 8 x 16G GPUs), then you can update parameters at every 4th step:
 ```bash
@@ -200,7 +226,7 @@ All DLA-34 and V2-99 experiments here use 8 A100 40G GPUs, and use gradient accu
 
 ### KITTI
 | experiment | backbone | train mem. (GB) | train time (hr) | GFLOPs | latency (ms) | train log |  Box AP (%) | BEV AP (%) | download |
-| :---: | :--: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |  :---: | 
+| :---: | :--: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |  :---: |
 | [config](configs/experiments/dd3d_kitti_dla34.yaml) | DLA-34 | 256 | 4.5 | 103 | 19.9** | [log](https://tri-ml-public.s3.amazonaws.com/github/dd3d/experiments/26675chm-20210826_083148/logs/log.txt) | 16.92 |  24.77 | [model](https://tri-ml-public.s3.amazonaws.com/github/dd3d/experiments/26675chm-20210826_083148/model_final.pth) |
 | [config](configs/experiments/dd3d_kitti_v99.yaml) | V2-99 | 400 | 9.0 | 453 | - | [log](https://tri-ml-public.s3.amazonaws.com/github/dd3d/experiments/4elbgev2-20210825_201852/logs/log.txt) | 23.90 |  32.01 | [model](https://tri-ml-public.s3.amazonaws.com/github/dd3d/experiments/4elbgev2-20210825_201852/model_final.pth) |
 | [config](configs/experiments/dd3d_kitti_omninets.yaml) | OmniML | 70* | 3.0* | 41 | 11.4** | [log](https://tri-ml-public.s3.amazonaws.com/github/dd3d/experiments/DD3D-OmniML-kitti-log.txt) | 20.58 |  28.73 | [model](https://tri-ml-public.s3.amazonaws.com/github/dd3d/experiments/DD3D-OmniML-kitti.pth) |
